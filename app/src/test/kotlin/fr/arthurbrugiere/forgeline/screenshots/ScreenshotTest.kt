@@ -140,6 +140,8 @@ import fr.arthurbrugiere.forgeline.ui.SoftNavigation
 import fr.arthurbrugiere.forgeline.user.UserScreen
 import fr.arthurbrugiere.forgeline.user.UserTab
 import fr.arthurbrugiere.forgeline.user.UserUiState
+import fr.arthurbrugiere.forgeline.welcome.TourScreen
+import fr.arthurbrugiere.forgeline.welcome.TourStep
 import fr.arthurbrugiere.forgeline.you.YouReposState
 import fr.arthurbrugiere.forgeline.you.YouScreen
 import org.junit.Rule
@@ -167,6 +169,8 @@ class ScreenshotTest {
 
     private fun defaultTabFor(name: String): TopLevelDestination? = when {
         name.startsWith("app_shell_") ||
+            // The welcome stands before the app's shell: no navigation under it.
+            name.startsWith("welcome_") ||
             name.startsWith("dispatch_form_") ||
             name.startsWith("issue_manage_") ||
             name.startsWith("merge_") -> null
@@ -236,6 +240,38 @@ class ScreenshotTest {
     @Test
     @Config(qualifiers = "w1280dp-h800dp-land-xhdpi")
     fun app_shell_tablet() = snapshot("app_shell_tablet", darkTheme = false) { ForgelineApp(session = SessionState.SignedOut, onSignOut = {}, navigator = rememberAppNavigator(settled = true)) }
+
+    @Composable
+    private fun Tour(step: TourStep) = TourScreen(
+        trending = mixedTrendingState.copy(updatedAtMillis = java.time.Instant.parse("2026-09-27T09:48:00Z").toEpochMilli()), onTrendingPeriod = {}, onTrendingForge = {}, onBrowse = {}, onOpenRepo = {}, onSignIn = {},
+        startAt = step, nowMillis = java.time.Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
+    )
+
+    @Test
+    fun welcome_tour_trending_light() = snapshot("welcome_tour_trending_light", darkTheme = false) { Tour(TourStep.TRENDING) }
+
+    @Test
+    fun welcome_tour_inbox_light() = snapshot("welcome_tour_inbox_light", darkTheme = false) { Tour(TourStep.INBOX) }
+
+    @Test
+    fun welcome_tour_feed_light() = snapshot("welcome_tour_feed_light", darkTheme = false) { Tour(TourStep.FEED) }
+
+    @Test
+    fun welcome_tour_sign_in_light() = snapshot("welcome_tour_sign_in_light", darkTheme = false) { Tour(TourStep.SIGN_IN) }
+
+    @Test
+    fun welcome_tour_inbox_dark() = snapshot("welcome_tour_inbox_dark", darkTheme = true) { Tour(TourStep.INBOX) }
+
+    @Test
+    fun welcome_tour_trending_dark_amoled() = snapshot("welcome_tour_trending_dark_amoled", darkTheme = true, amoledBlack = true) { Tour(TourStep.TRENDING) }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 2.0f)
+    fun welcome_tour_inbox_font_2_0_light() = snapshot("welcome_tour_inbox_font_2_0_light", darkTheme = false) { Tour(TourStep.INBOX) }
+
+    @Test
+    @Config(qualifiers = "w800dp-h360dp-land-xhdpi")
+    fun welcome_tour_trending_landscape_phone_light() = snapshot("welcome_tour_trending_landscape_phone_light", darkTheme = false) { Tour(TourStep.TRENDING) }
 
     @Test
     fun settings_light() = snapshot("settings_light", darkTheme = false) { SettingsPreview() }

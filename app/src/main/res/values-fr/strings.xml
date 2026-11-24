@@ -170,6 +170,16 @@
     <string name="sign_in_github_access">GitHub demandera l’accès à vos dépôts, privés compris, et la permission de les supprimer. Forgeline s’en sert pour les afficher et pour y commenter, étoiler et lancer des workflows ; il ne supprime un dépôt que si vous le demandez, depuis les paramètres de ce dépôt.</string>
     <string name="you_signed_out_title">Connecter un compte</string>
     <string name="you_signed_out_body">GitHub, GitLab, Codeberg, Gitea, Tangled, SourceHut ou votre propre Forgejo. La boîte de réception et le fil demandent un compte ; les tendances et la navigation fonctionnent sans.</string>
+    <string name="tour_skip">Passer</string>
+    <string name="tour_next">Suivant</string>
+    <string name="tour_trending_title">Voyez ce qui monte</string>
+    <string name="tour_trending_body">Les dépôts qui grimpent le plus vite aujourd’hui sur GitHub, GitLab, Codeberg, Gitea et Tangled, en direct. Sans compte : touchez-en un pour l’ouvrir.</string>
+    <string name="tour_inbox_title">Videz votre boîte d’un geste</string>
+    <string name="tour_inbox_body">Les notifications de toutes vos forges dans une seule liste. Ce sont des exemples : balayez-en un vers la droite pour le marquer lu, vers la gauche une fois traité.</string>
+    <string name="tour_feed_title">Suivez ce que les gens créent</string>
+    <string name="tour_feed_body">Versions, fusions et étoiles des personnes que vous suivez, les plus récentes d’abord. Des exemples ici, les vôtres une fois connecté.</string>
+    <string name="tour_sign_in_title">Ajoutez vos forges</string>
+    <string name="tour_sign_in_body">Connectez-vous à l’une maintenant, ajoutez les autres quand vous voulez. Votre jeton reste chiffré sur ce téléphone et ne part que vers sa forge.</string>
     <string name="sign_in_headline">Se connecter à %1$s</string>
     <string name="sign_in_headline_other">Se connecter à votre serveur</string>
     <string name="sign_in_privacy">Forgeline parle à %1$s directement depuis votre téléphone. Votre jeton est chiffré sur cet appareil et n’est envoyé que là-bas.</string>

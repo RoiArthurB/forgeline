@@ -11,6 +11,7 @@ import androidx.compose.ui.test.performScrollToNode
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.HiltTestApplication
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -27,6 +28,10 @@ class WikiFlowTest {
 
     @get:Rule(order = 1)
     val composeRule = createAndroidComposeRule<MainActivity>()
+
+    /** Launched signed in nowhere, the app opens on the welcome: these tests are about what comes after it. */
+    @Before
+    fun leaveWelcome() = composeRule.leaveWelcome()
 
     private fun waitFor(text: String) =
         composeRule.waitUntil(FLOW_WAIT_MILLIS) { composeRule.onAllNodes(hasText(text, substring = true)).fetchSemanticsNodes().isNotEmpty() }

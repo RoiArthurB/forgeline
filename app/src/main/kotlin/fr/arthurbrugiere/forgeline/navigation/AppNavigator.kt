@@ -69,6 +69,9 @@ class AppNavigator(
         if (pending != null && pending.first.host == forge.host) pending.second()
     }
 
+    /** Whether every tab is still at its root: nothing, a link included, has been opened yet. */
+    val nothingOpened: Boolean get() = stacks.values.all { it.size == 1 }
+
     fun backStackOf(tab: TopLevelDestination): List<NavKey> = stacks.getValue(tab)
 
     fun visibleBackStacks(): List<TopLevelDestination> =

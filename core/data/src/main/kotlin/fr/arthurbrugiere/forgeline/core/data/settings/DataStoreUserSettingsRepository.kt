@@ -58,6 +58,7 @@ class DataStoreUserSettingsRepository @Inject constructor(
             roomyTargets = prefs[ROOMY_TARGETS] ?: defaults.roomyTargets,
             // A hint a later version no longer has is skipped.
             hintsSeen = Hint.entries.filterTo(mutableSetOf()) { it.name in prefs[HINTS_SEEN].orEmpty() },
+            welcomeSeen = prefs[WELCOME_SEEN] ?: defaults.welcomeSeen,
             themeMode = prefs[THEME_MODE]
                 ?.let { stored -> ThemeMode.entries.firstOrNull { it.name == stored } }
                 ?: defaults.themeMode,
@@ -109,6 +110,7 @@ class DataStoreUserSettingsRepository @Inject constructor(
             // Kept: hints seen in a newer version, met again after going back to this one.
             prefs[HINTS_SEEN] = prefs[HINTS_SEEN].orEmpty().filterTo(mutableSetOf()) { name -> Hint.entries.none { it.name == name } } +
                 wanted.hintsSeen.map { it.name }
+            prefs[WELCOME_SEEN] = wanted.welcomeSeen
         }
     }
 
@@ -173,6 +175,7 @@ class DataStoreUserSettingsRepository @Inject constructor(
         val TEXT_SIZE = stringPreferencesKey("text_size")
         val SYSTEM_FONT = booleanPreferencesKey("system_font")
         val ROOMY_TARGETS = booleanPreferencesKey("roomy_targets")
+        val WELCOME_SEEN = booleanPreferencesKey("welcome_seen")
         val HINTS_SEEN = stringSetPreferencesKey("hints_seen")
     }
 }

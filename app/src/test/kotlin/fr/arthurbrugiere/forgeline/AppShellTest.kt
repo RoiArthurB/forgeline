@@ -18,6 +18,7 @@ import androidx.compose.ui.test.performTextInput
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.HiltTestApplication
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -33,6 +34,10 @@ class AppShellTest {
 
     @get:Rule(order = 1)
     val composeRule = createAndroidComposeRule<MainActivity>()
+
+    /** Launched signed in nowhere, the app opens on the welcome: these tests are about what comes after it. */
+    @Before
+    fun leaveWelcome() = composeRule.leaveWelcome()
 
     // Every tab shows its label under its icon and is named once for screen readers.
     private fun tab(label: String) = composeRule.onNode(hasContentDescription(label) and isSelectable())
@@ -200,7 +205,7 @@ class AppShellTest {
     }
 
     @Test
-    fun opening_an_issue_signed_out_leads_to_signing_in() {
+    fun opening_an_issue_signed_out_leads_to_signing_in_on_its_forge() {
         tab("Trending").performClick()
         composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("paperclip")).fetchSemanticsNodes().isNotEmpty() }
         composeRule.onNodeWithText("paperclip").performClick()
@@ -210,7 +215,9 @@ class AppShellTest {
 
         composeRule.onNodeWithText("New issue").performClick()
 
-        composeRule.onNodeWithText("Your own Forgejo, Gitea or GitLab server").assertExists()
+        // Straight at the repository's forge, not the list of every forge: the issue is opened there once signed in.
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Connect to GitHub")).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.onNodeWithText("Your own Forgejo, Gitea or GitLab server").assertDoesNotExist()
     }
 
     private fun openIssuesTab() {

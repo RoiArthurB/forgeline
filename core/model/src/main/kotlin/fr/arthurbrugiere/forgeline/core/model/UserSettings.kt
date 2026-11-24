@@ -102,4 +102,6 @@ data class UserSettings(
     val roomyTargets: Boolean = false,
     /** The hints put away, never shown again. Not a choice offered in Settings: what has been read. */
     val hintsSeen: Set<Hint> = emptySet(),
+    /** Whether the welcome, offered as the app opens signed in nowhere, was left once. Like [hintsSeen], what has been read. */
+    val welcomeSeen: Boolean = false,
 )

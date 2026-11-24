@@ -166,6 +166,16 @@
     <string name="sign_in_github_access">GitHub will ask for access to your repositories, private ones included, and for permission to delete them. Forgeline uses it to show them and to comment, star and run workflows there; it deletes a repository only when you ask, from that repository\'s settings.</string>
     <string name="you_signed_out_title">Connect an account</string>
     <string name="you_signed_out_body">GitHub, GitLab, Codeberg, Gitea, Tangled, SourceHut or your own Forgejo. Your inbox and feed need an account; Trending and browsing work without one.</string>
+    <string name="tour_skip">Skip</string>
+    <string name="tour_next">Next</string>
+    <string name="tour_trending_title">See what’s rising</string>
+    <string name="tour_trending_body">Today’s fastest-growing repositories on GitHub, GitLab, Codeberg, Gitea and Tangled, live. No account needed: tap one to open it.</string>
+    <string name="tour_inbox_title">Clear your inbox with a swipe</string>
+    <string name="tour_inbox_body">Notifications from all your forges in one list. These are examples: swipe one right to mark it read, left once you’re done.</string>
+    <string name="tour_feed_title">Follow what people make</string>
+    <string name="tour_feed_body">Releases, merges and stars from the people you follow, newest first. Examples here, yours once you sign in.</string>
+    <string name="tour_sign_in_title">Bring your forges</string>
+    <string name="tour_sign_in_body">Sign in to one now, add the others whenever you like. Your token stays encrypted on this phone and only goes to its forge.</string>
 
     <string name="sign_in_headline">Connect to %1$s</string>
     <string name="sign_in_headline_other">Connect to your server</string>

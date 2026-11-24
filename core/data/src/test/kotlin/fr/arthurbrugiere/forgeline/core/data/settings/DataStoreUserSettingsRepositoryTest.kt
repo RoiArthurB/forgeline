@@ -120,6 +120,7 @@ class DataStoreUserSettingsRepositoryTest {
         systemFont = true,
         roomyTargets = true,
         hintsSeen = setOf(fr.arthurbrugiere.forgeline.core.model.Hint.INBOX_SWIPES, fr.arthurbrugiere.forgeline.core.model.Hint.INBOX_YOURS),
+        welcomeSeen = true,
     )
 
     @Test
@@ -158,6 +159,7 @@ class DataStoreUserSettingsRepositoryTest {
         assertThat(changed.textSize).isNotEqualTo(defaults.textSize)
         assertThat(changed.systemFont).isNotEqualTo(defaults.systemFont)
         assertThat(changed.roomyTargets).isNotEqualTo(defaults.roomyTargets)
+        assertThat(changed.welcomeSeen).isNotEqualTo(defaults.welcomeSeen)
     }
 
     @Test

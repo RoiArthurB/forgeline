@@ -30,9 +30,12 @@ data class SettingsSectionRoute(val section: fr.arthurbrugiere.forgeline.setting
 @Serializable
 data object CreditsRoute : NavKey
 
-/** Signing in, at the list of forges, or straight at [host]'s own when a tap on that forge's content asked for it. */
+/**
+ * Signing in, at the list of forges, or straight at [host]'s own when a tap on that forge's content asked for it, or
+ * at the [choice] already picked from a list of them (a [fr.arthurbrugiere.forgeline.signin.SignInForge] by name).
+ */
 @Serializable
-data class SignInRoute(val host: String? = null) : NavKey {
+data class SignInRoute(val host: String? = null, val choice: String? = null) : NavKey {
     val forge: ForgeInstance? get() = host?.let(ForgeInstance::of)
 }
 

@@ -82,6 +82,8 @@ class MainActivity : ComponentActivity() {
                             onLinkOpened = { link = null },
                             // Not known until the settings are read: the app waits rather than open on the wrong tab.
                             startTab = (uiState as? MainUiState.Ready)?.settings?.startTab,
+                            welcome = !settings.welcomeSeen,
+                            onWelcomeSeen = viewModel::welcomeSeen,
                         )
                     }
                 }

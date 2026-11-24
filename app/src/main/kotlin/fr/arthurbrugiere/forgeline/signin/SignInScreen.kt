@@ -77,9 +77,14 @@ fun SignInRoute(
     onSignedIn: (ForgeInstance) -> Unit,
     /** The forge to start at, past the list: the one whose content asked for an account. */
     forge: ForgeInstance? = null,
+    /** Or the choice to start at, picked before coming here (the tour's list of forges). */
+    choice: SignInForge? = null,
     viewModel: SignInViewModel = hiltViewModel(),
 ) {
-    LaunchedEffect(forge) { forge?.let(viewModel::startOn) }
+    LaunchedEffect(forge, choice) {
+        forge?.let(viewModel::startOn)
+        choice?.let(viewModel::startAt)
+    }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val openUrl = rememberCustomTabOpener()
     val clipboard = LocalClipboard.current
@@ -222,7 +227,7 @@ private fun ForgeList(onSelectForge: (SignInForge) -> Unit) {
     }
 }
 
-private val SignInForge.label: Int
+internal val SignInForge.label: Int
     get() = when (this) {
         SignInForge.GITHUB -> R.string.sign_in_forge_github
         SignInForge.GITLAB -> R.string.sign_in_forge_gitlab
@@ -234,7 +239,7 @@ private val SignInForge.label: Int
     }
 
 /** Where the forge is, or what it takes. */
-private val SignInForge.where: Int
+internal val SignInForge.where: Int
     get() = when (this) {
         SignInForge.GITHUB -> R.string.sign_in_where_github
         SignInForge.GITLAB -> R.string.sign_in_where_gitlab

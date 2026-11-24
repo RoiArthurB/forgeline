@@ -44,4 +44,14 @@ class MainViewModelTest {
 
         assertThat(inbox.actions).containsExactly("read:42")
     }
+
+    @Test
+    fun the_welcome_left_once_is_remembered() = runTest {
+        val settings = FakeUserSettingsRepository()
+        val viewModel = MainViewModel(settings, FakeInboxRepository())
+
+        viewModel.welcomeSeen()
+
+        assertThat((viewModel.uiState.value as MainUiState.Ready).settings.welcomeSeen).isTrue()
+    }
 }

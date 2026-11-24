@@ -248,4 +248,16 @@ class AppNavigatorTest {
 
         assertThat(starred).isEqualTo(0)
     }
+
+    @Test
+    fun nothing_is_opened_until_a_screen_is_on_some_tab() {
+        val navigator = navigator()
+        assertThat(navigator.nothingOpened).isTrue()
+
+        navigator.selectTab(TopLevelDestination.YOU)
+        assertThat(navigator.nothingOpened).isTrue()
+
+        navigator.openLink(SettingsRoute)
+        assertThat(navigator.nothingOpened).isFalse()
+    }
 }

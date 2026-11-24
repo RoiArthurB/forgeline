@@ -49,7 +49,11 @@ class SettingsFlowTest {
     @Inject lateinit var settings: UserSettingsRepository
 
     @Before
-    fun inject() = hiltRule.inject()
+    fun inject() {
+        hiltRule.inject()
+        // These tests are about what comes after the welcome a first launch signed in nowhere opens on.
+        runBlocking { settings.update { it.copy(welcomeSeen = true) } }
+    }
 
     @After
     fun reset() = runBlocking { settings.update { UserSettings() } }

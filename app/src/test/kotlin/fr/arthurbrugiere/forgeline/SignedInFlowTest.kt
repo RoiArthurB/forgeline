@@ -29,6 +29,7 @@ import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -46,6 +47,10 @@ class SignedInFlowTest {
 
     @get:Rule(order = 1)
     val composeRule = createAndroidComposeRule<MainActivity>()
+
+    /** Launched signed in nowhere, the app opens on the welcome: these tests are about what comes after it. */
+    @Before
+    fun leaveWelcome() = composeRule.leaveWelcome()
 
     @Inject lateinit var accounts: AccountRepository
 

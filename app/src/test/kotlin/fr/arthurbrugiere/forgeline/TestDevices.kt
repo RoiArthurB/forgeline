@@ -1,6 +1,11 @@
 package fr.arthurbrugiere.forgeline
 
+import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isSelectable
 import androidx.compose.ui.test.junit4.ComposeTestRule
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 
 /** Robolectric qualifiers for a typical phone (Pixel 8-sized). */
 const val PHONE = "w411dp-h914dp-xxhdpi"
@@ -24,4 +29,20 @@ const val WRITE_LATENCY_MILLIS = 300L
 fun ComposeTestRule.waitUntilAsked(asked: () -> Boolean) = waitUntil(FLOW_WAIT_MILLIS) {
     waitForIdle()
     asked()
+}
+
+/** What only the tour's first step says: the tour is on screen while this is. */
+const val WELCOME_LEAD = "See what’s rising"
+
+/**
+ * A launch signed in nowhere opens on the welcome until it has been left once, which the settings on disk the app tests
+ * share may or may not remember: a test about the rest of the app leaves it the way a person would, by browsing, once
+ * the app has settled on one or the other. Skipping the tour lands on Trending.
+ */
+fun ComposeTestRule.leaveWelcome() {
+    waitUntil(FLOW_WAIT_MILLIS) {
+        onAllNodes(hasText(WELCOME_LEAD)).fetchSemanticsNodes().isNotEmpty() ||
+            onAllNodes(hasContentDescription("Trending") and isSelectable()).fetchSemanticsNodes().isNotEmpty()
+    }
+    if (onAllNodes(hasText(WELCOME_LEAD)).fetchSemanticsNodes().isNotEmpty()) onNodeWithText("Skip").performClick()
 }

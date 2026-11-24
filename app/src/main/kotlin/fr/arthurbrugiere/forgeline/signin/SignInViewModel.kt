@@ -146,6 +146,13 @@ class SignInViewModel @Inject constructor(
         if (_state.value.usesHost) setHost(forge.host)
     }
 
+    /** Starts at [choice]'s own sign-in rather than the list, once only, like [startOn]. */
+    fun startAt(choice: SignInForge) {
+        if (started) return
+        started = true
+        selectForge(choice)
+    }
+
     fun selectForge(forge: SignInForge) {
         job?.cancel()
         // The address typed under one choice doesn't follow to another: a GitLab's isn't a Forgejo's.

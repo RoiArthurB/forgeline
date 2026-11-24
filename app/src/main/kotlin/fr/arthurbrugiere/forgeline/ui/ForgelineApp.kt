@@ -6,8 +6,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.NavKey
@@ -51,6 +56,8 @@ import fr.arthurbrugiere.forgeline.navigation.userRoute
 import fr.arthurbrugiere.forgeline.session.SessionState
 import fr.arthurbrugiere.forgeline.session.actingOn
 import fr.arthurbrugiere.forgeline.signin.SignInRoute
+import fr.arthurbrugiere.forgeline.trending.TrendingViewModel
+import fr.arthurbrugiere.forgeline.welcome.TourRoute
 import fr.arthurbrugiere.forgeline.you.YouDestination
 import fr.arthurbrugiere.forgeline.actions.JobLogRoute as JobLogDestination
 import fr.arthurbrugiere.forgeline.actions.RunRoute as RunDestination
@@ -88,7 +95,16 @@ fun ForgelineApp(
     navigator: AppNavigator = rememberAppNavigator(),
     /** The tab chosen to open on; null while the settings are still being read. */
     startTab: StartTab? = StartTab.AUTOMATIC,
+    /** Whether the welcome hasn't been seen yet: it is offered when the app opens signed in nowhere. */
+    welcome: Boolean = false,
+    onWelcomeSeen: () -> Unit = {},
 ) {
+    // Decided once, as the app opens: signed in nowhere, and not over a link it opened on. Never later in the visit.
+    var welcoming by rememberSaveable { mutableStateOf(false) }
+    // The tour's Trending is the tab's own, kept from the tour on: one page, its period, forge and stars carried over,
+    // rather than a second one left looking things up behind the app.
+    var toured by rememberSaveable { mutableStateOf(false) }
+    val touredTrending = if (toured) hiltViewModel<TrendingViewModel>(key = TOUR_TRENDING) else null
     LaunchedEffect(link) {
         if (link != null) {
             navigator.openLink(link)
@@ -98,9 +114,29 @@ fun ForgelineApp(
     if (!navigator.settled) {
         // Which tab to open on depends on whether anyone is signed in, so wait for the session rather than flash the wrong one.
         LaunchedEffect(session, startTab) {
-            if (session !is SessionState.Loading && startTab != null) navigator.settle(signedIn = session is SessionState.SignedIn, startTab = startTab)
+            if (session !is SessionState.Loading && startTab != null) {
+                navigator.settle(signedIn = session is SessionState.SignedIn, startTab = startTab)
+                welcoming = welcome && session == SessionState.SignedOut && navigator.nothingOpened
+                toured = welcoming
+            }
         }
         Box(Modifier.fillMaxSize().background(Soft.colors.ground))
+        return
+    }
+    if (welcoming && touredTrending != null) {
+        // Every way out of the tour lands in the app on Trending, where signing in nowhere starts; what was tapped opens on it.
+        val leave = { then: () -> Unit ->
+            welcoming = false
+            onWelcomeSeen()
+            navigator.selectTab(TopLevelDestination.TRENDING)
+            then()
+        }
+        TourRoute(
+            trending = touredTrending,
+            onBrowse = { leave {} },
+            onOpenRepo = { repo -> leave { navigator.navigate(repo.route()) } },
+            onSignIn = { choice -> leave { navigator.navigate(SignInKey(choice = choice.name)) } },
+        )
         return
     }
     SoftNavigation(selected = navigator.currentTab, onSelect = navigator::selectTab) {
@@ -118,13 +154,20 @@ fun ForgelineApp(
             LocalOpenPictureLabel provides stringResource(R.string.picture_view),
             LocalCopyCodeLabel provides stringResource(R.string.markdown_copy_code),
         ) {
-            ForgelineNavDisplay(navigator, session, onSignOut, onActAs)
+            ForgelineNavDisplay(navigator, session, onSignOut, onActAs, touredTrending)
         }
     }
 }
 
 @Composable
-private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, onSignOut: (Account) -> Unit, onActAs: (String, () -> Unit) -> Unit) {
+private fun ForgelineNavDisplay(
+    navigator: AppNavigator,
+    session: SessionState,
+    onSignOut: (Account) -> Unit,
+    onActAs: (String, () -> Unit) -> Unit,
+    /** The tour's Trending, which the tab goes on with; null when the app didn't open on the tour. */
+    touredTrending: TrendingViewModel?,
+) {
     val signIn = { navigator.signIn() }
     // A tap on a forge's content that needs an account there: sign-in opens at that forge, then does what was tapped.
     val signInThen = { forge: ForgeInstance, then: () -> Unit -> navigator.signIn(forge, then) }
@@ -152,7 +195,9 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
         entry<FeedRoute> {
             FeedDestination(session, onSignIn = signIn, onOpenRepo = openRepo, onOpenIssue = openIssue, onOpenUser = openUser, onBrowseTrending = browseTrending)
         }
-        entry<TrendingRoute> { TrendingDestination(session, onSignIn = signInThen, onOpenRepo = openRepo) }
+        entry<TrendingRoute> {
+            TrendingDestination(session, onSignIn = signInThen, onOpenRepo = openRepo, viewModel = touredTrending ?: hiltViewModel())
+        }
         entry<DiscussionRoute> { key ->
             fr.arthurbrugiere.forgeline.discussion.DiscussionRoute(
                 key, session, onBack = navigator::goBack, onOpenRepo = openRepo, onOpenIssue = openIssue, onOpenUser = { openUser(key.repo.forge, it) }, onSignIn = signIn,
@@ -328,7 +373,12 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
             )
         }
         entry<SignInKey> { key ->
-            SignInRoute(onBack = navigator::goBack, onSignedIn = navigator::signedIn, forge = key.forge)
+            SignInRoute(
+                onBack = navigator::goBack,
+                onSignedIn = navigator::signedIn,
+                forge = key.forge,
+                choice = fr.arthurbrugiere.forgeline.signin.SignInForge.entries.firstOrNull { it.name == key.choice },
+            )
         }
         entry<fr.arthurbrugiere.forgeline.navigation.CollectionsRoute> {
             fr.arthurbrugiere.forgeline.collections.CollectionsRoute(
@@ -373,3 +423,6 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
         onBack = navigator::goBack,
     )
 }
+
+/** The key the tour's Trending view-model is kept under, in the activity, for the tab to go on with. */
+private const val TOUR_TRENDING = "tour"

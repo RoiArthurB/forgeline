@@ -59,9 +59,19 @@ class AppSmokeTest {
         awaitTabs()
     }
 
-    // The shell waits for the session before showing any tab (signed out it opens on Trending, signed in on Inbox).
-    private fun awaitTabs() = composeRule.waitUntil(5_000) {
-        composeRule.onAllNodes(hasContentDescription("Inbox") and isSelectable()).fetchSemanticsNodes().isNotEmpty()
+    /**
+     * The shell waits for the session before showing any tab (signed out it opens on Trending, signed in on Inbox). A
+     * first launch signed in nowhere opens on the tour, until it has been left once: it is skipped here.
+     */
+    private fun awaitTabs() {
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodes(hasText("See what’s rising")).fetchSemanticsNodes().isNotEmpty() ||
+                composeRule.onAllNodes(hasContentDescription("Inbox") and isSelectable()).fetchSemanticsNodes().isNotEmpty()
+        }
+        if (composeRule.onAllNodes(hasText("See what’s rising")).fetchSemanticsNodes().isNotEmpty()) composeRule.onNodeWithText("Skip").performClick()
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodes(hasContentDescription("Inbox") and isSelectable()).fetchSemanticsNodes().isNotEmpty()
+        }
     }
 
     @Test

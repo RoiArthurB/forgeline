@@ -23,12 +23,17 @@ sealed interface MainUiState {
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
-    settingsRepository: UserSettingsRepository,
+    private val settingsRepository: UserSettingsRepository,
     private val inbox: InboxRepository,
 ) : ViewModel() {
     val uiState: StateFlow<MainUiState> = settingsRepository.settings
         .map<UserSettings, MainUiState> { MainUiState.Ready(it) }
         .stateIn(viewModelScope, SharingStarted.Eagerly, MainUiState.Loading)
+
+    /** The welcome was left, by signing in or browsing: it is never shown again. */
+    fun welcomeSeen() {
+        viewModelScope.launch { settingsRepository.update { it.copy(welcomeSeen = true) } }
+    }
 
     /**
      * An unread thread was opened from its phone notification or the widget: it's read now, as when opened from the
