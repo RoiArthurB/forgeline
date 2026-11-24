@@ -2,8 +2,10 @@ package fr.arthurbrugiere.forgeline.welcome
 
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
@@ -11,8 +13,10 @@ import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.swipeRight
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.PHONE
+import fr.arthurbrugiere.forgeline.core.testing.trendingRepo
 import fr.arthurbrugiere.forgeline.core.ui.theme.ForgelineTheme
 import fr.arthurbrugiere.forgeline.signin.SignInForge
+import fr.arthurbrugiere.forgeline.trending.TrendingItem
 import fr.arthurbrugiere.forgeline.trending.TrendingUiState
 import org.junit.Rule
 import org.junit.Test
@@ -29,10 +33,10 @@ class TourScreenTest {
     private var browsed = 0
     private val signedIn = mutableListOf<SignInForge>()
 
-    private fun show(startAt: TourStep = TourStep.TRENDING) = composeRule.setContent {
+    private fun show(startAt: TourStep = TourStep.TRENDING, trending: TrendingUiState = TrendingUiState(updatedAtMillis = 0L)) = composeRule.setContent {
         ForgelineTheme(darkTheme = false) {
             TourScreen(
-                trending = TrendingUiState(updatedAtMillis = 0L), onTrendingPeriod = {}, onTrendingForge = {},
+                trending = trending, onTrendingPeriod = {}, onTrendingForge = {},
                 onBrowse = { browsed++ }, onOpenRepo = {}, onSignIn = { signedIn += it }, startAt = startAt,
             )
         }
@@ -52,6 +56,18 @@ class TourScreenTest {
 
         composeRule.runOnUiThread { composeRule.activity.onBackPressedDispatcher.onBackPressed() }
         composeRule.onNodeWithText("Clear your inbox with a swipe").assertIsDisplayed()
+    }
+
+    /** The tour only shows: nothing in it reaches an account. A star is where it says one is needed, not given. */
+    @Test
+    fun a_star_tapped_in_the_tour_leads_to_the_forges_and_gives_nothing() {
+        show(trending = TrendingUiState(items = listOf(TrendingItem(trendingRepo("paperclipai/paperclip"), starred = null)), updatedAtMillis = 0L))
+
+        composeRule.onAllNodes(hasContentDescription("Star ", substring = true)).onFirst().performClick()
+
+        composeRule.onNodeWithText("Bring your forges").assertIsDisplayed()
+        assertThat(signedIn).isEmpty()
+        assertThat(browsed).isEqualTo(0)
     }
 
     @Test
