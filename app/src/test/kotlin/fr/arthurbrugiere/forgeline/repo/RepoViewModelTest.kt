@@ -631,6 +631,25 @@ class RepoViewModelTest {
         assertThat(stars.starred).containsExactly(requested)
     }
 
+    // Regression: a star given right after signing in was undone by the lookup signing in starts, answered first.
+    @Test
+    fun a_star_asked_before_signing_in_is_given_and_outlasts_the_lookup_signing_in_starts() = test {
+        cache()
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.starred).isNull()
+        val gate = kotlinx.coroutines.CompletableDeferred<Unit>().also { stars.gate = it }
+
+        signIn()
+        viewModel.star()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.starred).isTrue()
+        gate.complete(Unit)
+        advanceUntilIdle()
+        assertThat(stars.starred).containsExactly(requested)
+    }
+
     @Test
     fun the_actions_tab_shows_unless_the_repository_switched_its_ci_off() {
         val codeberg = RepoId("forgejo", "website", ForgeInstance.Codeberg)

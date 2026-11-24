@@ -8,6 +8,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.rememberNavBackStack
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.StartTab
 
 /**
@@ -46,6 +47,28 @@ class AppNavigator(
         settledState.value = true
     }
 
+    /** What a signed-out tap asked for, done once its forge is signed in. Kept for the one sign-in it opened. */
+    private var afterSignIn: Pair<ForgeInstance, () -> Unit>? = null
+
+    /**
+     * Opens sign-in: at the list of forges, or at [forge]'s own. Given [then], what the tap asked for (a star, a new
+     * issue) is done once that forge is signed in, rather than dropped on the way.
+     */
+    fun signIn(forge: ForgeInstance? = null, then: (() -> Unit)? = null) {
+        afterSignIn = if (forge != null && then != null) forge to then else null
+        navigate(SignInRoute(forge?.host))
+    }
+
+    /**
+     * Signed in on [forge]: back to where sign-in was asked for, then what was asked there. An account on another
+     * forge than the one asked about can't do it, so nothing is done.
+     */
+    fun signedIn(forge: ForgeInstance) {
+        val pending = afterSignIn
+        goBack()
+        if (pending != null && pending.first.host == forge.host) pending.second()
+    }
+
     fun backStackOf(tab: TopLevelDestination): List<NavKey> = stacks.getValue(tab)
 
     fun visibleBackStacks(): List<TopLevelDestination> =
@@ -79,6 +102,8 @@ class AppNavigator(
 
     fun goBack() {
         val stack = stacks.getValue(currentTab)
+        // Leaving sign-in without signing in: what it was opened for isn't wanted anymore.
+        if (stack.lastOrNull() is SignInRoute) afterSignIn = null
         when {
             stack.size > 1 -> stack.removeAt(stack.lastIndex)
             currentTab != home -> currentTabState.value = home

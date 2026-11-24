@@ -125,7 +125,9 @@ fun ForgelineApp(
 
 @Composable
 private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, onSignOut: (Account) -> Unit, onActAs: (String, () -> Unit) -> Unit) {
-    val signIn = { navigator.navigate(SignInKey) }
+    val signIn = { navigator.signIn() }
+    // A tap on a forge's content that needs an account there: sign-in opens at that forge, then does what was tapped.
+    val signInThen = { forge: ForgeInstance, then: () -> Unit -> navigator.signIn(forge, then) }
     val openRepo = { id: RepoId -> navigator.navigate(id.route()) }
     val openIssue = { ref: IssueRef -> navigator.navigate(ref.route()) }
     // A login only means someone on a given forge: each screen passes the forge of what it shows.
@@ -150,7 +152,7 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
         entry<FeedRoute> {
             FeedDestination(session, onSignIn = signIn, onOpenRepo = openRepo, onOpenIssue = openIssue, onOpenUser = openUser, onBrowseTrending = browseTrending)
         }
-        entry<TrendingRoute> { TrendingDestination(session, onSignIn = signIn, onOpenRepo = openRepo) }
+        entry<TrendingRoute> { TrendingDestination(session, onSignIn = signInThen, onOpenRepo = openRepo) }
         entry<DiscussionRoute> { key ->
             fr.arthurbrugiere.forgeline.discussion.DiscussionRoute(
                 key, session, onBack = navigator::goBack, onOpenRepo = openRepo, onOpenIssue = openIssue, onOpenUser = { openUser(key.repo.forge, it) }, onSignIn = signIn,
@@ -264,6 +266,7 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
                 onOpenRun = { id, runId -> navigator.navigate(RunKey(id.forge.host, id.owner, id.name, runId)) },
                 onOpenUser = { openUser(key.repo.forge, it) },
                 onSignIn = signIn,
+                onSignInThen = signInThen,
                 onOpenHistory = { id, ref, path -> navigator.navigate(id.historyRoute(ref, path)) },
                 onNewPullRequest = { id -> navigator.navigate(fr.arthurbrugiere.forgeline.navigation.NewPullRequestRoute(id.forge.host, id.owner, id.name)) },
                 onOpenSettings = { id -> navigator.navigate(id.settingsRoute()) },
@@ -324,8 +327,8 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
                 section = key.section,
             )
         }
-        entry<SignInKey> {
-            SignInRoute(onBack = navigator::goBack, onSignedIn = navigator::goBack)
+        entry<SignInKey> { key ->
+            SignInRoute(onBack = navigator::goBack, onSignedIn = navigator::signedIn, forge = key.forge)
         }
         entry<fr.arthurbrugiere.forgeline.navigation.CollectionsRoute> {
             fr.arthurbrugiere.forgeline.collections.CollectionsRoute(

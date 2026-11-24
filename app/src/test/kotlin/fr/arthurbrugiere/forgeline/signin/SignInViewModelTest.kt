@@ -93,6 +93,46 @@ class SignInViewModelTest {
     }
 
     @Test
+    fun started_on_a_forge_it_skips_the_list_and_says_where_it_signed_in() = test {
+        val viewModel = viewModel()
+        assertThat(viewModel.state.value.choosingForge).isTrue()
+
+        viewModel.startOn(ForgeInstance.GitHub)
+        viewModel.signInWithToken("ghp_valid")
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.forge).isEqualTo(SignInForge.GITHUB)
+        assertThat(viewModel.state.value.choosingForge).isFalse()
+        assertThat(viewModel.state.value.signedInOn).isEqualTo(ForgeInstance.GitHub)
+    }
+
+    @Test
+    fun started_on_a_server_of_ones_own_it_comes_with_its_address() = test {
+        val forgejo = viewModel().apply { startOn(ForgeInstance(ForgeType.FORGEJO, "git.example.org")) }
+        val gitlab = viewModel().apply { startOn(ForgeInstance(ForgeType.GITLAB, "gitlab.example.org")) }
+        val codeberg = viewModel().apply { startOn(ForgeInstance.Codeberg) }
+
+        assertThat(forgejo.state.value.forge).isEqualTo(SignInForge.OTHER)
+        assertThat(forgejo.state.value.host).isEqualTo("git.example.org")
+        assertThat(gitlab.state.value.forge).isEqualTo(SignInForge.GITLAB)
+        assertThat(gitlab.state.value.gitlabOwnServer).isTrue()
+        assertThat(gitlab.state.value.host).isEqualTo("gitlab.example.org")
+        assertThat(codeberg.state.value.forge).isEqualTo(SignInForge.CODEBERG)
+        assertThat(codeberg.state.value.usesHost).isFalse()
+    }
+
+    @Test
+    fun starting_on_a_forge_happens_once_so_turning_the_phone_keeps_the_choice_made_since() = test {
+        val viewModel = viewModel()
+        viewModel.startOn(ForgeInstance.Codeberg)
+        viewModel.selectForge(SignInForge.GITHUB)
+
+        viewModel.startOn(ForgeInstance.Codeberg)
+
+        assertThat(viewModel.state.value.forge).isEqualTo(SignInForge.GITHUB)
+    }
+
+    @Test
     fun a_valid_token_signs_in() = test {
         val viewModel = viewModel()
 

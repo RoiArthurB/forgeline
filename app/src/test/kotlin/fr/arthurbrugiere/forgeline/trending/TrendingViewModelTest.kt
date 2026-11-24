@@ -154,6 +154,40 @@ class TrendingViewModelTest {
         assertThat(stars.starred).containsExactly(paperclip.id)
     }
 
+    // Regression: a star given right after signing in was undone by the star lookup signing in starts, answered first.
+    @Test
+    fun a_star_asked_before_signing_in_is_given_and_outlasts_the_lookup_signing_in_starts() = test {
+        trending.snapshots.getValue(TrendingPeriod.DAILY).value = TrendingSnapshot(listOf(paperclip), 1_000)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        val gate = kotlinx.coroutines.CompletableDeferred<Unit>().also { stars.gate = it }
+
+        signIn()
+        viewModel.star(paperclip.id)
+        advanceUntilIdle()
+
+        // The forge hasn't given the star yet, so the lookup said no: what was set here still shows.
+        assertThat(viewModel.state.value.items.single().starred).isTrue()
+        gate.complete(Unit)
+        advanceUntilIdle()
+        assertThat(stars.starred).containsExactly(paperclip.id)
+    }
+
+    @Test
+    fun a_star_asked_before_signing_in_never_takes_one_back() = test {
+        signIn()
+        stars.starred += paperclip.id
+        trending.snapshots.getValue(TrendingPeriod.DAILY).value = TrendingSnapshot(listOf(paperclip), 1_000)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.star(paperclip.id)
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.items.single().starred).isTrue()
+        assertThat(stars.starred).containsExactly(paperclip.id)
+    }
+
     @Test
     fun a_failed_star_is_rolled_back_and_reported() = test {
         signIn()

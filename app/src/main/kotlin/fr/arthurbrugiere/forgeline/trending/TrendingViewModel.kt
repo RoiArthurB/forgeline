@@ -66,6 +66,13 @@ class TrendingViewModel @Inject constructor(
     private val error = MutableStateFlow<ForgeError?>(null)
     private val starFailed = MutableStateFlow(false)
 
+    /**
+     * Stars set here, which win over a lookup answered after them: a star given right after signing in races the
+     * lookup signing in starts, which can still say no.
+     */
+    private val written = mutableMapOf<RepoId, Boolean>()
+    private var lookedUpFor: String? = null
+
     // Saved by host so the choice survives process death; null is the mixed page.
     private val onlyHost = savedState.getStateFlow<String?>(FORGE_KEY, null)
 
@@ -106,7 +113,10 @@ class TrendingViewModel @Inject constructor(
                 accounts.activeAccount.map { it?.id }.distinctUntilChanged(),
             ) { ids, accountId -> ids to accountId }
                 .collect { (ids, accountId) ->
-                    starred.value = if (accountId == null || ids.isEmpty()) emptyMap() else stars.starredStatus(ids)
+                    // Signing in keeps what was set just before; another account, or none, has its own stars.
+                    if (lookedUpFor != null && accountId != lookedUpFor) written.clear()
+                    lookedUpFor = accountId
+                    starred.value = if (accountId == null || ids.isEmpty()) emptyMap() else stars.starredStatus(ids) + written
                 }
         }
     }
@@ -125,11 +135,17 @@ class TrendingViewModel @Inject constructor(
         viewModelScope.launch { refresh(period.value, force = true) }
     }
 
-    fun toggleStar(repo: RepoId) {
-        val target = !(starred.value[repo] ?: false)
+    fun toggleStar(repo: RepoId) = setStarred(repo, !(starred.value[repo] ?: false))
+
+    /** Stars [repo], as asked before signing in: given, never taken back, whatever was known of it signed out. */
+    fun star(repo: RepoId) = setStarred(repo, true)
+
+    private fun setStarred(repo: RepoId, target: Boolean) {
+        written[repo] = target
         starred.update { it + (repo to target) }
         viewModelScope.launch {
             if (stars.setStarred(repo, target) is ForgeResult.Failure) {
+                written.remove(repo)
                 starred.update { it + (repo to !target) }
                 starFailed.value = true
             }

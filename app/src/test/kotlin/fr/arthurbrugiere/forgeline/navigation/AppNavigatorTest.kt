@@ -4,6 +4,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.navigation3.runtime.NavKey
 import com.google.common.truth.Truth.assertThat
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import org.junit.Test
 
 class AppNavigatorTest {
@@ -157,9 +158,9 @@ class AppNavigatorTest {
         navigator.navigate(SettingsRoute)
         navigator.navigate(CreditsRoute)
 
-        navigator.replaceCurrent(SignInRoute)
+        navigator.replaceCurrent(SignInRoute())
 
-        assertThat(navigator.backStackOf(TopLevelDestination.YOU)).containsExactly(YouRoute, SettingsRoute, SignInRoute).inOrder()
+        assertThat(navigator.backStackOf(TopLevelDestination.YOU)).containsExactly(YouRoute, SettingsRoute, SignInRoute()).inOrder()
     }
 
     @Test
@@ -207,5 +208,44 @@ class AppNavigatorTest {
 
         assertThat(signedIn.currentTab).isEqualTo(TopLevelDestination.INBOX)
         assertThat(signedOut.currentTab).isEqualTo(TopLevelDestination.TRENDING)
+    }
+
+    @Test
+    fun a_signed_out_tap_opens_sign_in_on_its_forge_and_is_done_once_signed_in_there() {
+        val navigator = navigator()
+        navigator.selectTab(TopLevelDestination.TRENDING)
+        var starred = 0
+
+        navigator.signIn(ForgeInstance.Codeberg) { starred++ }
+        assertThat(navigator.backStackOf(TopLevelDestination.TRENDING)).containsExactly(TrendingRoute, SignInRoute("codeberg.org")).inOrder()
+        navigator.signedIn(ForgeInstance.Codeberg)
+
+        assertThat(navigator.backStackOf(TopLevelDestination.TRENDING)).containsExactly(TrendingRoute)
+        assertThat(starred).isEqualTo(1)
+    }
+
+    @Test
+    fun signing_in_on_another_forge_than_the_one_asked_about_does_nothing_there() {
+        val navigator = navigator()
+        var starred = 0
+
+        navigator.signIn(ForgeInstance.Codeberg) { starred++ }
+        navigator.signedIn(ForgeInstance.GitHub)
+
+        assertThat(starred).isEqualTo(0)
+    }
+
+    @Test
+    fun a_sign_in_left_without_signing_in_drops_what_it_was_for() {
+        val navigator = navigator()
+        var starred = 0
+        navigator.signIn(ForgeInstance.Codeberg) { starred++ }
+        navigator.goBack()
+
+        // Later, signing in from somewhere that asked for nothing.
+        navigator.navigate(SignInRoute())
+        navigator.signedIn(ForgeInstance.Codeberg)
+
+        assertThat(starred).isEqualTo(0)
     }
 }

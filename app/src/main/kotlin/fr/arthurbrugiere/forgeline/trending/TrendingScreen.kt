@@ -115,7 +115,8 @@ import java.text.NumberFormat
 @Composable
 fun TrendingRoute(
     session: SessionState,
-    onSignIn: () -> Unit,
+    /** Signs in on a forge, then does what was tapped. */
+    onSignIn: (ForgeInstance, then: () -> Unit) -> Unit,
     onOpenRepo: (RepoId) -> Unit,
     viewModel: TrendingViewModel = hiltViewModel(),
 ) {
@@ -125,8 +126,8 @@ fun TrendingRoute(
         state = state,
         onPeriodChange = viewModel::selectPeriod,
         onRefresh = viewModel::refresh,
-        // Starring needs an account on the repository's own forge.
-        onToggleStar = { repo -> if (session.signedInOn(repo.forge)) viewModel.toggleStar(repo) else onSignIn() },
+        // Starring needs an account on the repository's own forge: signed out there, the star is given once signed in.
+        onToggleStar = { repo -> if (session.signedInOn(repo.forge)) viewModel.toggleStar(repo) else onSignIn(repo.forge) { viewModel.star(repo) } },
         // The app can't open a GitLab repository yet: its page on gitlab.com can.
         onOpenRepo = { repo -> if (repo.forge.isBrowsable) onOpenRepo(repo) else openUrl(repo.webUrl) },
         onErrorShown = viewModel::errorShown,

@@ -55,6 +55,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.arthurbrugiere.forgeline.R
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeType
 import fr.arthurbrugiere.forgeline.core.ui.format.ForgeIcon
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
@@ -73,9 +74,12 @@ import kotlinx.coroutines.launch
 @Composable
 fun SignInRoute(
     onBack: () -> Unit,
-    onSignedIn: () -> Unit,
+    onSignedIn: (ForgeInstance) -> Unit,
+    /** The forge to start at, past the list: the one whose content asked for an account. */
+    forge: ForgeInstance? = null,
     viewModel: SignInViewModel = hiltViewModel(),
 ) {
+    LaunchedEffect(forge) { forge?.let(viewModel::startOn) }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val openUrl = rememberCustomTabOpener()
     val clipboard = LocalClipboard.current
@@ -83,7 +87,7 @@ fun SignInRoute(
 
     LaunchedEffect(state.step) {
         when (val step = state.step) {
-            SignInStep.SignedIn -> onSignedIn()
+            SignInStep.SignedIn -> state.signedInOn?.let(onSignedIn)
             // The forge's approval page opens once; "Open again" is there if the tab was closed.
             is SignInStep.AwaitingBrowser -> openUrl(step.authorizationUrl)
             else -> Unit

@@ -30,8 +30,11 @@ data class SettingsSectionRoute(val section: fr.arthurbrugiere.forgeline.setting
 @Serializable
 data object CreditsRoute : NavKey
 
+/** Signing in, at the list of forges, or straight at [host]'s own when a tap on that forge's content asked for it. */
 @Serializable
-data object SignInRoute : NavKey
+data class SignInRoute(val host: String? = null) : NavKey {
+    val forge: ForgeInstance? get() = host?.let(ForgeInstance::of)
+}
 
 // Every route into forge content names its forge by host: the same owner/name can exist on two forges.
 

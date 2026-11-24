@@ -45,6 +45,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.arthurbrugiere.forgeline.R
 import fr.arthurbrugiere.forgeline.actions.WorkflowDispatchSheet
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeType
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.RepoDetails
@@ -92,6 +93,8 @@ fun RepoRoute(
     onOpenRun: (RepoId, Long) -> Unit,
     onOpenUser: (String) -> Unit,
     onSignIn: () -> Unit,
+    /** Signs in on a forge, then does what was tapped. */
+    onSignInThen: (ForgeInstance, then: () -> Unit) -> Unit = { _, _ -> onSignIn() },
     /** Opens the history of the repository from a ref, of the folder at [path] when the Code tab is in one. */
     onOpenHistory: (RepoId, ref: String, path: String?) -> Unit = { _, _, _ -> },
     /** Opens the form for a new pull request in a repository. */
@@ -158,15 +161,16 @@ fun RepoRoute(
         onRefresh = viewModel::refresh,
         onSelectTab = viewModel::selectTab,
         onRetryTab = viewModel::retryTab,
-        onToggleStar = { if (signedIn) viewModel.toggleStar() else onSignIn() },
+        // Signed out on the repository's forge, what was tapped is done once signed in there.
+        onToggleStar = { if (signedIn) viewModel.toggleStar() else onSignInThen(id.forge, viewModel::star) },
         onOpenDirectory = viewModel::openDirectory,
         onOpenParentDirectory = viewModel::openParentDirectory,
         onOpenFile = { file -> state.details?.let { onOpenFile(it.id, file.path, state.browsedRef ?: it.defaultBranch, null) } },
         // The kind goes with the number: on GitLab a merge request and an issue can share theirs.
         onOpenIssue = { number, isPullRequest -> state.details?.let { onOpenIssue(IssueRef(it.id, number, isPullRequest)) } },
         // Opening an issue needs an account on the repository's forge, like starring it.
-        onNewIssue = { if (signedIn) state.details?.let { onNewIssue(it.id) } else onSignIn() },
-        onNewPullRequest = { if (signedIn) state.details?.let { onNewPullRequest(it.id) } else onSignIn() },
+        onNewIssue = { state.details?.id?.let { repo -> if (signedIn) onNewIssue(repo) else onSignInThen(repo.forge) { onNewIssue(repo) } } },
+        onNewPullRequest = { state.details?.id?.let { repo -> if (signedIn) onNewPullRequest(repo) else onSignInThen(repo.forge) { onNewPullRequest(repo) } } },
         onNewDiscussion = { state.details?.let { onNewDiscussion(it.id) } },
         onOpenSettings = { state.details?.let { onOpenSettings(it.id) } },
         onOpenHistory = { state.details?.let { details -> onOpenHistory(details.id, state.browsedRef ?: details.defaultBranch, state.code.path.ifEmpty { null }) } },

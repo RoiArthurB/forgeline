@@ -163,6 +163,13 @@ class RepoViewModel @AssistedInject constructor(
     /** The first refresh is over: what the account may do came with the details, when they were asked. */
     private val firstRefresh = CompletableDeferred<Unit>()
 
+    /**
+     * The star set here, which wins over a lookup answered after it: a star given right after signing in races the
+     * lookup signing in starts, which can still say no.
+     */
+    private var writtenStar: Boolean? = null
+    private var lookedUpFor: String? = null
+
     init {
         viewModelScope.launch {
             refreshDetails(force = false)
@@ -174,6 +181,9 @@ class RepoViewModel @AssistedInject constructor(
             combine(canonicalIds(), accounts.accounts, accounts.activeAccount, accounts.acting) { id, all, active, acting -> id to actingOn(id.forge, all, active, acting)?.id }
                 .distinctUntilChanged()
                 .collect { (id, account) ->
+                    // Signing in keeps the star set just before; another account, or none, has its own.
+                    if (lookedUpFor != null && account != lookedUpFor) writtenStar = null
+                    lookedUpFor = account
                     // Asked side by side: neither waits for the other.
                     viewModelScope.launch {
                         (repos.languages(id) as? ForgeResult.Success)?.value?.let { languages -> local.update { it.copy(languages = languages) } }
@@ -181,7 +191,7 @@ class RepoViewModel @AssistedInject constructor(
                     viewModelScope.launch {
                         // Starred and watched together: one request where the forge answers both (GitHub).
                         val viewer = if (account == null) RepoViewer(starred = null, watching = null) else stars.viewer(id)
-                        local.update { it.copy(starred = viewer.starred, watching = viewer.watching) }
+                        local.update { it.copy(starred = writtenStar.takeIf { account != null } ?: viewer.starred, watching = viewer.watching) }
                     }
                     viewModelScope.launch {
                         // Asked once the details are in, which tell it: asked alongside, it was a second request for them.
@@ -284,12 +294,18 @@ class RepoViewModel @AssistedInject constructor(
 
     fun openParentDirectory() = openDirectory(local.value.code.path.substringBeforeLast('/', missingDelimiterValue = ""))
 
-    fun toggleStar() {
-        val target = !(local.value.starred ?: false)
+    fun toggleStar() = setStarred(!(local.value.starred ?: false))
+
+    /** Stars the repository, as asked before signing in: given, never taken back, whatever was known of it signed out. */
+    fun star() = setStarred(true)
+
+    private fun setStarred(target: Boolean) {
+        writtenStar = target
         local.update { it.copy(starred = target) }
         viewModelScope.launch {
             val id = canonicalId()
             if (stars.setStarred(id, target) is ForgeResult.Failure) {
+                writtenStar = null
                 local.update { it.copy(starred = !target, starFailed = true) }
             }
         }

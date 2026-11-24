@@ -99,6 +99,8 @@ data class SignInUiState(
     val forgeName: String = ForgeInstance.GitHub.displayName,
     /** Whether the forges are listed to pick one, which is where signing in starts: every forge in sight, at any text size. */
     val choosingForge: Boolean = false,
+    /** The forge the account was added on, once signed in. */
+    val signedInOn: ForgeInstance? = null,
 ) {
     /** Whether the server is given by its address: a Forgejo of one's own, or a GitLab of one's own. */
     val usesHost: Boolean get() = forge == SignInForge.OTHER || (forge == SignInForge.GITLAB && gitlabOwnServer)
@@ -119,6 +121,30 @@ class SignInViewModel @Inject constructor(
 
     private var job: Job? = null
     private var probing: Job? = null
+
+    private var started = false
+
+    /**
+     * Starts at [forge]'s own sign-in rather than the list, when a tap on that forge's content asked for it: a server
+     * of one's own comes with its address typed. Once only, so turning the phone doesn't undo what was typed since.
+     */
+    fun startOn(forge: ForgeInstance) {
+        if (started) return
+        started = true
+        val choice = when {
+            forge == ForgeInstance.GitHub -> SignInForge.GITHUB
+            forge == ForgeInstance.GitLab -> SignInForge.GITLAB
+            forge == ForgeInstance.Codeberg -> SignInForge.CODEBERG
+            forge == ForgeInstance.Gitea -> SignInForge.GITEA
+            forge == ForgeInstance.SourceHut -> SignInForge.SOURCEHUT
+            forge == ForgeInstance.Tangled -> SignInForge.TANGLED
+            forge.type == ForgeType.GITLAB -> SignInForge.GITLAB
+            else -> SignInForge.OTHER
+        }
+        selectForge(choice)
+        if (choice == SignInForge.GITLAB && forge != ForgeInstance.GitLab) selectGitLabServer(own = true)
+        if (_state.value.usesHost) setHost(forge.host)
+    }
 
     fun selectForge(forge: SignInForge) {
         job?.cancel()
@@ -352,7 +378,7 @@ class SignInViewModel @Inject constructor(
             is ForgeResult.Success -> {
                 rememberOtherServer()
                 accounts.signIn(auth.forge, result.value, token, refreshToken, expiresAtMillis)
-                show(SignInStep.SignedIn)
+                _state.update { it.copy(step = SignInStep.SignedIn, signedInOn = auth.forge) }
             }
         }
     }
